@@ -1,0 +1,30 @@
+name: Prune media
+# Lives in the PUBLIC media repo (viral-seablings-media), not this one. Keeps the last 14 days of
+# media and squashes history every week so the repo stays far below GitHub Pages' 1 GB limit.
+on:
+  schedule:
+    - cron: "0 19 * * 0"     # Mondays 03:00 MYT
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Drop old folders and squash history
+        run: |
+          cutoff=$(date -u -d "14 days ago" +%F)
+          for d in */; do
+            day=${d:0:10}
+            if [[ "$day" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] && [[ "$day" < "$cutoff" ]]; then rm -rf "$d"; fi
+          done
+          git config user.name "vs-bot"
+          git config user.email "vs-bot@users.noreply.github.com"
+          git checkout --orphan fresh
+          git add -A
+          git commit -m "media: last 14 days"
+          git branch -M fresh main
+          git push --force origin main
